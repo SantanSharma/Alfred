@@ -44,6 +44,7 @@ show).
 alfred skills                     List all skills.
 alfred build                      Validate skills, rebuild config/skills-index.json.
 alfred sync [--claude|--copilot]  Build plugin/ and connect it to every tool. Idempotent.
+.\teardown.ps1                    Undo everything sync did, back to a fresh clone. Reversible.
 ```
 
 `alfred sync` prints one `OK` / `SKIP` / `FAIL` line per step and writes
@@ -51,6 +52,19 @@ the full run, including captured `copilot` output, to `logs/last-sync.log`.
 On failure it prints the failing step, the tool's stderr, the log path, and
 exits 1. A skill with missing `description` or a duplicate `name` fails the
 build step and nothing is synced out.
+
+## Teardown (back to "new user" state)
+
+From the project folder:
+
+```
+.\teardown.ps1
+```
+
+Removes both junctions, the Copilot marketplace registration, the global
+`alfred` command, and the generated `plugin/`, `logs/`,
+`config/skills-index.json`. Junctions first, so nothing can recurse into
+the real `plugin/` folder. Bring it back: `npm install -g . ; alfred sync`.
 
 ## Skill file format
 
