@@ -1,0 +1,19 @@
+{
+  "name": "alfred",
+  "owner": {
+    "name": "Santan Sharma",
+    "email": "pingsantan@gmail.com"
+  },
+  "metadata": {
+    "description": "Alfred shared skills, local dev marketplace.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "alfred",
+      "source": "plugin",
+      "description": "Alfred shared capability layer: skills usable across AI CLIs.",
+      "version": "0.1.0"
+    }
+  ]
+}

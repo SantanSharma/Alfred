@@ -1,0 +1,6 @@
+node_modules/
+/plugin/
+/logs/
+config/skills-index.json
+memory/*
+!memory/.gitkeep

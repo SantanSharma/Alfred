@@ -1,0 +1,18 @@
+{
+  "name": "alfred-cli",
+  "version": "0.1.0",
+  "description": "Alfred: shared capability layer (skills, knowledge, memory) usable by any AI CLI or editor extension.",
+  "bin": {
+    "alfred": "bin/alfred.js"
+  },
+  "main": "src/cli.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node bin/alfred.js",
+    "install:global": "npm install -g ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
