@@ -4,3 +4,4 @@ node_modules/
 config/skills-index.json
 memory/*
 !memory/.gitkeep
+/skills/
