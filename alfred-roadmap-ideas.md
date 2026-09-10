@@ -63,15 +63,20 @@ Point the new tool's MCP config at it. Done, that tool now sees every Alfred
 skill and memory note.
 
 **Real problem:** today every new AI tool needs its own adapter code
-(`claude.js`, `copilot.js`). Tools launch every few months. Writing an
-adapter per tool does not scale.
+(`claude.js`, `copilot.js`, `codex.js`). Tools launch every few months.
+Writing an adapter per tool does not scale.
 
-**Example:** you try Codex CLI next month. No adapter written. Add one line to
-its MCP config, and `idea-grill`, `ship-pr`, and your memory notes are all
-there on day one.
+**Update (2026-09-11):** Codex turned out not to need this. It reads
+`~/.agents/skills` (a tool-neutral root) and falls back to Claude's
+`.claude-plugin/plugin.json`, so `codex.js` is ~30 lines of symlinks and
+skills work today. Two lessons: the ecosystem is converging on shared
+paths and on Claude's manifest format, so check for those before assuming
+an adapter is needed; and MCP is no longer the unlock for *skills*.
 
-This is the feature that makes Alfred tool-independent for real, not just
-"Claude and Copilot".
+What MCP is still the unlock for: **memory and knowledge** (features 1 and
+2). There is no shared-path convention for those, and a tool that reads a
+`SKILL.md` folder still has no way to read `memory/` or append to it. Build
+this after 1 and 2 exist, and scope it to them.
 
 ---
 

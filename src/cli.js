@@ -11,8 +11,8 @@ const HELP = `Alfred: shared skills for AI CLIs, one source, every tool.
 Usage:
   alfred skills                 List all skills.
   alfred build                  Validate skills and rebuild the skills index.
-  alfred sync [--claude|--copilot]
-                                Build plugin/ and connect it to Claude Code and GitHub Copilot.
+  alfred sync [--claude|--copilot|--codex]
+                                Build plugin/ and connect it to Claude Code, GitHub Copilot, and Codex.
                                 Run after any skill change. Idempotent.
 
 Runs from any directory; Alfred resolves its own install location.
