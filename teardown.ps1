@@ -7,6 +7,12 @@ Set-Location $PSScriptRoot
 cmd /c rmdir "$env:USERPROFILE\.claude\skills\alfred"
 cmd /c rmdir "$env:USERPROFILE\.copilot\installed-plugins\alfred\alfred"
 
+# codex: one link per skill in ~/.agents/skills, a root shared with other tools.
+# Only ever remove reparse points (links); a real folder there is someone else's skill.
+Get-ChildItem "$env:USERPROFILE\.agents\skills" -Filter 'alfred-*' -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint } |
+  ForEach-Object { cmd /c rmdir "$($_.FullName)" }
+
 # copilot registration (this also drops the plugin entry)
 copilot plugin marketplace remove alfred
 
