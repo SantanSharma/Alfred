@@ -8,6 +8,7 @@
   "main": "src/cli.js",
   "type": "commonjs",
   "scripts": {
+    "test": "node --test",
     "start": "node bin/alfred.js",
     "install:global": "npm install -g ."
   },

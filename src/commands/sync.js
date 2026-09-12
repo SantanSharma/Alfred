@@ -43,6 +43,8 @@ function finish(log) {
     return;
   }
   console.log(`Sync OK. Skills live at ${PATHS.plugin}`);
+  console.log('  Memory: generated startup works across all three tools; native hooks add automatic context/cleanup.');
+  console.log('  Codex lifecycle hooks may require review in /hooks. Skill memory also works through the generated startup.');
   console.log('  Claude Code:  /alfred:<skill>   then /reload-plugins (or new session)');
   console.log('  Copilot:      /alfred <skill>    terminal immediate; VS Code new chat, or restart once after first setup');
   console.log('  Codex:        $alfred:<skill>    or "/" then pick under Skills; after sync run "Force reload skills" (Codex command menu) or restart VS Code');

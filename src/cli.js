@@ -4,6 +4,7 @@ const commands = {
   skills: require('./commands/skills'),
   build: require('./commands/build'),
   sync: require('./commands/sync'),
+  memory: require('./commands/memory'),
 };
 
 const HELP = `Alfred: shared skills for AI CLIs, one source, every tool.
@@ -11,6 +12,7 @@ const HELP = `Alfred: shared skills for AI CLIs, one source, every tool.
 Usage:
   alfred skills                 List all skills.
   alfred build                  Validate skills and rebuild the skills index.
+  alfred memory --help          Shared memory startup and session cleanup.
   alfred sync [--claude|--copilot|--codex]
                                 Build plugin/ and connect it to Claude Code, GitHub Copilot, and Codex.
                                 Run after any skill change. Idempotent.

@@ -210,6 +210,7 @@ Alfred/
   src/integrations/codex.js          already links skills into ~/.agents/skills; add hook registration when Codex hook shape is proven
   src/core/skills.js, skillsIndex.js + read optional `memory: false` frontmatter into the index
   teardown.ps1                       + remove both hook installs
+  teardown.sh                       + remove both hook installs
   README.md                          + one section
 ```
 

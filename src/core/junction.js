@@ -25,8 +25,7 @@ function ensureJunction(linkPath, target) {
       if (normalize(fs.readlinkSync(linkPath)) === normalize(target)) return 'ok';
       fs.unlinkSync(linkPath);
     } else {
-      // A real directory here is a stale copied snapshot; replace it with a live link.
-      fs.rmSync(linkPath, { recursive: true, force: true });
+      throw new Error(`${linkPath} exists and is not a link; move it aside before syncing`);
     }
     replaced = true;
   }

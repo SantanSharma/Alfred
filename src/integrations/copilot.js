@@ -6,6 +6,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const PATHS = require('../core/paths');
 const { ensureJunction } = require('../core/junction');
+const memoryHooks = require('./memoryHooks');
 
 const MARKETPLACE_NAME = 'alfred';
 const PLUGIN_NAME = 'alfred';
@@ -56,6 +57,7 @@ function ensureMarketplaceManifest() {
 }
 
 function sync(log) {
+  log.step('copilot: shared memory hooks (CLI and VS Code)', () => memoryHooks.install('copilot'));
   if (!available()) {
     log.skip('copilot', '"copilot" CLI not found on PATH; install GitHub Copilot CLI and re-run alfred sync');
     return;

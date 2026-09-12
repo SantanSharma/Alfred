@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const PATHS = require('../core/paths');
 const { ensureJunction } = require('../core/junction');
+const memoryHooks = require('./memoryHooks');
 
 // Codex finds skills by scanning root folders for <skill>/SKILL.md. `~/.agents/skills` is its
 // tool-neutral root: it is read from the real home even when CODEX_HOME points elsewhere, and
@@ -61,9 +62,7 @@ function ownedLinks() {
 function linkSkill(name) {
   const link = path.join(SKILLS_ROOT, PREFIX + name);
 
-  // ensureJunction treats a real directory at the link path as a stale copied snapshot and
-  // deletes it. That is right under ~/.claude/skills/, which Alfred owns outright, but wrong
-  // here: a real folder in this shared root is another tool's skill. Refuse instead.
+  // This shared root can contain another tool's real skill folders. Refuse collisions.
   let stat = null;
   try {
     stat = fs.lstatSync(link);
@@ -92,6 +91,7 @@ function pruneStale(keep) {
 }
 
 function sync(log) {
+  log.step('codex: memory lifecycle hooks', () => memoryHooks.install('codex'));
   const skills = builtSkills();
 
   log.step('codex: link each skill into ~/.agents/skills/alfred-<name>', () => {

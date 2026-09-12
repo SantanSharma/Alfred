@@ -29,6 +29,7 @@ function loadSkills() {
     return {
       name: data.name || path.basename(file, '.md'),
       description: data.description || '',
+      memory: data.memory !== 'false',
       file: path.relative(PATHS.skills, file),
       path: file,
     };

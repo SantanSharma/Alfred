@@ -13,6 +13,7 @@ function buildIndex() {
   const seen = new Map();
 
   for (const skill of skills) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(skill.name)) errors.push(`${skill.file}: invalid skill name "${skill.name}"`);
     if (!skill.description) errors.push(`${skill.file}: missing "description" in frontmatter`);
     if (seen.has(skill.name)) {
       errors.push(`${skill.file}: duplicate skill name "${skill.name}" (also ${seen.get(skill.name)})`);
@@ -31,7 +32,7 @@ function buildIndex() {
       {
         generatedAt: new Date().toISOString(),
         count: skills.length,
-        skills: skills.map(({ name, description, file }) => ({ name, description, file })),
+        skills: skills.map(({ name, description, file, memory }) => ({ name, description, file, memory })),
       },
       null,
       2

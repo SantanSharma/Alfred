@@ -12,10 +12,17 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 PLUGIN_DIR="$PWD/plugin"
 
+node bin/remove-memory-hooks.js || exit 1
+
 # Remove a path only if it is a symlink. rm on a symlink removes the link, never the target.
 unlink_if_link() {
   if [ -L "$1" ]; then
-    rm "$1" && echo "removed link   $1"
+    target="$(readlink "$1")"
+    if [ "$target" = "$PLUGIN_DIR" ]; then
+      rm "$1" && echo "removed link   $1"
+    else
+      echo "left alone     $1 (points outside this repo)"
+    fi
   elif [ -e "$1" ]; then
     echo "left alone     $1 (not a symlink; not created by alfred sync)"
   fi
