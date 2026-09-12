@@ -6,7 +6,8 @@
 Layer A  Alfred global      Alfred/knowledge/*.md   committed   rules, contract, conventions for every skill
                             Alfred/memory/global.md gitignored  your personal facts that apply in every project
 Layer B  Workspace          <project>/.alfred/      gitignored  this project's memory, sessions, skill report cards
-Layer C  Tool native        CLAUDE.md, .github/copilot-instructions.md, Claude auto-memory, Copilot memory
+Layer C  Tool native        CLAUDE.md, .github/copilot-instructions.md, AGENTS.md,
+                            Claude auto-memory, Copilot memory, Codex memory
 ```
 
 A and B are Alfred's. C belongs to the tools and to the team; Alfred never writes there.
@@ -27,7 +28,8 @@ If none of the three, do not store it. Most things in a conversation fail all th
 
 ## Priority when an Alfred skill is running
 
-Your rule: Alfred memory first, then tool memory and CLAUDE.md, then anything else.
+Your rule: Alfred memory first, then tool memory, CLAUDE.md, AGENTS.md, and similar
+tool-native files, then anything else.
 
 How it is achieved: two ways, one hard, one soft.
 
@@ -40,8 +42,8 @@ Soft (instruction): `knowledge/alfred-core.md` states the rule in one sentence:
 
 ```
 While an Alfred skill is running, if this text or .alfred/memory.md conflicts with
-CLAUDE.md, copilot-instructions, or tool memory, follow Alfred and mention the conflict
-to the user once.
+CLAUDE.md, copilot-instructions, AGENTS.md, or tool memory, follow Alfred and mention
+the conflict to the user once.
 ```
 
 Honest limit: this is an instruction, not enforcement. No hook can delete CLAUDE.md
@@ -71,7 +73,7 @@ knowledge packs idea) and a skill points at them by name. The hook injects only
 `Alfred/memory/global.md` (gitignored, cap 20 lines). Same one-line-per-fact format as
 the project memory. Starts empty. Grows only when the AI meets a fact that passes
 question 1 above. Today's `ship-pr` files `~/.claude/ship-pr/branch-prefix.txt` and
-`target-release.txt` become two lines here, readable by Copilot too.
+`target-release.txt` become two lines here, readable by Copilot and Codex too.
 
 ## Layer B in detail
 
@@ -117,6 +119,9 @@ rated_bad: 1
 ## Notes
 - 2026-09-07 missed a dependency in an Angular service (user flagged)
 ```
+
+Session filenames use the calling tool (`-claude`, `-copilot`, `-codex`) so cross-tool
+handoff is visible when reading history by hand.
 
 Tags on memory lines (`git`, `build`, `arch`, `db`, `pref`, `decision`, `gotcha`) cost
 nothing now and let a skill later say `memory-tags: [git]` in its frontmatter so the

@@ -9,7 +9,9 @@ reads a small JSON back. Some doorbells let you hand the AI a note ("additional
 context"). Some only let you say yes or no. We only care about the ones that let us
 hand over a note, plus one at the end for cleanup.
 
-Both Claude Code and Copilot CLI have doorbells. Different names, same idea.
+Claude Code and Copilot CLI have known doorbells. Codex is now part of Alfred's skill
+delivery path through `~/.agents/skills`; the memory hook uses the same design once the
+Codex doorbell shape is verified. Different names, same idea.
 
 ## The one script
 
@@ -21,17 +23,17 @@ node "<Alfred>/hooks/alfred-hook.js" skill-start
 node "<Alfred>/hooks/alfred-hook.js" session-end
 ```
 
-It reads stdin, sees whether the JSON looks like Claude (`tool_name`, `session_id`) or
-Copilot (`toolName`, `sessionId`), does its work, prints the shape that tool expects.
-Same script, both tools, both CLI and VS Code.
+It reads stdin, sees whether the JSON looks like Claude (`tool_name`, `session_id`),
+Copilot (`toolName`, `sessionId`), or a future Codex hook payload, does its work, and
+prints the shape that tool expects. Same script, every supported tool, CLI and VS Code.
 
 ## Which doorbell does what
 
-| Moment | Claude Code event | Copilot event | Script action | Note handed to AI? |
-|---|---|---|---|---|
-| Session opens | `SessionStart` | `sessionStart` | `session-start` | One line, only if `.alfred/` already exists |
-| Alfred skill called | `PreToolUse`, matcher `Skill` | `postToolUse`, matcher `^skill$` | `skill-start` | Yes, the main injection |
-| Session closes | `SessionEnd` | `sessionEnd` | `session-end` | No. File cleanup only |
+| Moment | Claude Code event | Copilot event | Codex event | Script action | Note handed to AI? |
+|---|---|---|---|---|---|
+| Session opens | `SessionStart` | `sessionStart` | TBD | `session-start` | One line, only if `.alfred/` already exists |
+| Alfred skill called | `PreToolUse`, matcher `Skill` | `postToolUse`, matcher `^skill$` | TBD, expected around `$alfred:<skill>` load | `skill-start` | Yes, the main injection where supported |
+| Session closes | `SessionEnd` | `sessionEnd` | TBD | `session-end` | No. File cleanup only |
 
 Why Copilot uses `postToolUse` and not `preToolUse`: Copilot's `preToolUse` can only
 allow, deny, or edit arguments. It cannot hand over a note. `postToolUse` can. And for
@@ -64,7 +66,8 @@ Copilot, skill called:
 }
 ```
 
-Both carry the two things the script needs: which folder, which skill.
+Codex still needs one transcript or debug payload captured for the hook case. The two
+fields the script needs are the same: which folder, which skill.
 
 ## What the script prints back
 
@@ -80,8 +83,9 @@ Copilot:
 { "additionalContext": "...text..." }
 ```
 
-If the script decides to do nothing (not an Alfred skill, memory off, bad folder), it
-prints nothing and exits 0. The tool carries on as if no hook existed.
+If the script decides to do nothing (not an Alfred skill, memory off, bad folder, or a
+Codex hook shape that is not supported yet), it prints nothing and exits 0. The tool
+carries on as if no hook existed.
 
 ## What `skill-start` does, in order
 
@@ -113,8 +117,9 @@ No AI involved. Must finish fast; Claude gives session-end hooks very little tim
 
 ## How `alfred sync` installs the doorbells
 
-Today `alfred sync` does: build `plugin/`, junction for Claude, marketplace for Copilot.
-Add two steps, both idempotent (safe to run again and again):
+Today `alfred sync` does: build `plugin/`, junction for Claude, marketplace for Copilot,
+and links each built skill into Codex's `~/.agents/skills` root. Add hook steps that stay
+idempotent (safe to run again and again):
 
 Claude Code: merge three entries into `~/.claude/settings.json` under `hooks`.
 Each entry's command contains the string `alfred-hook.js`, so a re-run finds and
@@ -157,7 +162,14 @@ Alternative for Copilot: ship `plugin/hooks.json` inside the live plugin instead
 Plugin hooks are documented too. Pick the user-level file first because it does not
 depend on the plugin runtime version; switch later if it proves unnecessary.
 
-## VS Code, both tools
+Codex: `alfred sync` already links `plugin/skills/<name>` to
+`~/.agents/skills/alfred-<name>`. Codex scans that root directly, follows the links,
+and resolves the Alfred plugin manifest, so skills show up as `$alfred:<skill>` without
+needing a Codex binary on PATH. The hook registration point is the remaining piece: once
+the Codex event/payload shape is confirmed, wire it to the same `alfred-hook.js` actions
+instead of creating a second memory system.
+
+## VS Code, all tools
 
 Claude Code in VS Code is the same program as the terminal one, same `settings.json`.
 Nothing extra.
@@ -168,6 +180,10 @@ hook file, open Copilot Chat in VS Code, run `/alfred idea-grill`, check whether
 `.alfred/feedback/idea-grill.md` got `uses: 1`. If not, VS Code users still get the
 folder and the files (created by CLI sessions), just no automatic injection until VS
 Code ships a newer runtime.
+
+Codex in VS Code reads `~/.agents/skills` and may require "Force reload skills" or a VS
+Code restart after `alfred sync`. Memory file reads and writes are still plain workspace
+file operations; automatic injection waits on the Codex hook proof above.
 
 ## How the AI writes back
 
@@ -191,6 +207,7 @@ Alfred/
   memory/global.md                   new, gitignored (already covered by memory/*), your facts
   src/integrations/claude.js         + merge/remove hooks in ~/.claude/settings.json
   src/integrations/copilot.js        + write/remove ~/.copilot/hooks/alfred.json
+  src/integrations/codex.js          already links skills into ~/.agents/skills; add hook registration when Codex hook shape is proven
   src/core/skills.js, skillsIndex.js + read optional `memory: false` frontmatter into the index
   teardown.ps1                       + remove both hook installs
   README.md                          + one section

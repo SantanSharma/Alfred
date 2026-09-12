@@ -12,7 +12,7 @@ That is the whole feature. Everything else is detail.
 
 ## Think of it like a butler with a notebook
 
-- Alfred is the butler. Claude and Copilot are two different bodies he can wear.
+- Alfred is the butler. Claude, Copilot, and Codex are three different bodies he can wear.
 - Each house you visit (each project folder) gets its own small notebook, kept in a
   drawer in that house: `.alfred/`.
 - Alfred also carries one pocket notebook everywhere: the `memory/` and `knowledge/`
@@ -24,14 +24,14 @@ That is the whole feature. Everything else is detail.
 - Every skill also has a report card in the house notebook. Alfred ticks "used" himself.
   You are the only one who can write "good" or "bad" on it.
 
-Same notebook whether he is wearing the Claude body or the Copilot body. That is what
-makes memory consistent across tools.
+Same notebook whether he is wearing the Claude body, the Copilot body, or the Codex
+body. That is what makes memory consistent across tools.
 
 ## Your four goals, and what each one becomes
 
 | You said | It becomes | Mechanism |
 |---|---|---|
-| 1. Consistent memory for Claude and Copilot, VS Code and CLI | Plain `.md` files in `<project>/.alfred/` that both tools read and write | Both tools fire a hook when a skill is called. One script serves both. |
+| 1. Consistent memory for Claude, Copilot, and Codex, VS Code and CLI | Plain `.md` files in `<project>/.alfred/` that all three tools can read and write | Hook-capable tools fire a hook when a skill is called. One script serves every supported hook shape; Codex skill loading is already in scope via `~/.agents/skills`, with hook injection still to verify. |
 | 2. Self-improving skills, facts collected now, humans improve later | `.alfred/feedback/<skill>.md` in every project: use count, your ratings, notes, improvement asks | Hook bumps counters. AI writes notes only on your signal. You read them biweekly. |
 | 3. Working-directory memory, sessions, feedback, with Alfred memory first | `.alfred/memory.md`, `.alfred/sessions/`, `.alfred/feedback/`, plus a priority rule in the contract text | Script finds the project root from the hook's `cwd`. Contract says "Alfred memory wins when running an Alfred skill". |
 | 4. Shared knowledge and memory for all skills as pre-context | `Alfred/knowledge/alfred-core.md` (committed, the rules) and `Alfred/memory/global.md` (gitignored, your personal cross-project facts) | Hook injects both once per session, before any skill text. |
@@ -44,9 +44,10 @@ Zero setup beyond what exists today:
 alfred sync
 ```
 
-That command already connects skills. It will also install the hooks. Nothing to
-configure, nothing to learn, no new command to remember. `.alfred/` appears by itself
-the first time you use an Alfred skill in a project, and hides itself from git.
+That command already connects skills to Claude, Copilot, and Codex. It will also install
+the hooks where the tool supports them. Nothing to configure, nothing to learn, no new
+command to remember. `.alfred/` appears by itself the first time you use an Alfred skill
+in a project, and hides itself from git.
 
 Optional knobs, only if you ever want them, all off by default:
 
@@ -76,8 +77,10 @@ same session gets only item 4 plus one line saying "rules already loaded".
 | Hook can inject text before the skill runs, Claude Code | 85% | Documented (`PreToolUse` `additionalContext`). Not yet tried by us. |
 | Hook fires and injects, Copilot CLI | 80% | Documented (`postToolUse` `additionalContext`, user hooks in `~/.copilot/hooks/`). Not yet tried. |
 | Copilot inside VS Code | 45% | VS Code ships an older Copilot runtime. Might not run user hooks. Needs one test. Fallback: folder convention still works, injection missing until VS Code updates. |
+| Codex skill discovery | 90% | Implemented through `~/.agents/skills/alfred-<skill>` links to `plugin/skills/`; no `codex` binary required. |
+| Codex hook injection | 35% | In scope for the same `.alfred/` design, but the exact hook event and `additionalContext` shape still need a focused proof. |
 | Memory files stay small and useful | 70% | Depends on the contract text being obeyed. Caps and pruning in code catch the rest. |
 | Feedback files become useful for skill improvement | 65% | Use counts and your notes are solid. Anything the AI grades itself is weak. |
 
-Overall: the mechanism is sound and cheap. The one real unknown is Copilot in VS Code.
-Test it in the first hour of building, before anything else.
+Overall: the mechanism is sound and cheap. The two real unknowns are Copilot in VS Code
+and Codex hook injection. Test both in the first hour of building, before anything else.

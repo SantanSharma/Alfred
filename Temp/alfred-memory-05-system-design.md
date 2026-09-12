@@ -11,6 +11,7 @@ flowchart TB
     subgraph Tools["AI tools (the hands)"]
         CC[Claude Code<br/>CLI + VS Code]
         CP[Copilot<br/>CLI + VS Code]
+      CX[Codex<br/>VS Code + shared skills root]
     end
 
     subgraph AlfredRepo["Alfred repo (the brain, one copy)"]
@@ -26,6 +27,7 @@ flowchart TB
     subgraph HookInstall["Hook registrations (written by alfred sync)"]
         CS[~/.claude/settings.json<br/>hooks: SessionStart, PreToolUse Skill, SessionEnd]
         CH[~/.copilot/hooks/alfred.json<br/>sessionStart, postToolUse skill, sessionEnd]
+      AS[~/.agents/skills/alfred-&lt;skill&gt;<br/>Codex skill links]
     end
 
     subgraph Workspace["Any project folder"]
@@ -35,26 +37,33 @@ flowchart TB
 
     U --> CC
     U --> CP
+    U --> CX
     SYNC --> PLG
     SYNC --> CS
     SYNC --> CH
+    SYNC --> AS
     SK --> PLG
     PLG --> CC
     PLG --> CP
+    AS --> CX
     CS --> CC
     CH --> CP
     CC -- rings hook --> HK
     CP -- rings hook --> HK
+    CX -.hook shape TBD.-> HK
     HK --> IDX
     HK --> KN
     HK --> GM
     HK <--> WS
     HK -- additionalContext --> CC
     HK -- additionalContext --> CP
+    HK -.additionalContext when supported.-> CX
     CC -- writes summary, notes --> WS
     CP -- writes summary, notes --> WS
+    CX -- writes summary, notes --> WS
     TN -.loaded by tool itself.-> CC
     TN -.loaded by tool itself.-> CP
+    TN -.loaded by tool itself.-> CX
 ```
 
 ## 2. One skill call, Claude Code
@@ -106,6 +115,11 @@ sequenceDiagram
     H->>W: cleanup
 ```
 
+  Codex uses the same Alfred skill files through `~/.agents/skills/alfred-<skill>` and the
+  same `.alfred/` workspace files. The missing proof is the exact Codex hook event that can
+  inject `additionalContext` at skill start; until that is confirmed, Codex is in scope for
+  skill delivery and manual file memory, with automatic memory injection pending.
+
 ## 4. Memory layers and read order
 
 ```mermaid
@@ -122,12 +136,14 @@ flowchart LR
     subgraph C["Layer C · tool native, read-only for Alfred"]
         C1[CLAUDE.md]
         C2[copilot-instructions.md]
-        C3[Claude / Copilot own memory]
+      C3[AGENTS.md]
+      C4[Claude / Copilot / Codex own memory]
     end
     A1 --> A2 --> B1 --> B2 --> B3 --> SKILL[skill text]
     C1 -.already in context.-> SKILL
     C2 -.already in context.-> SKILL
     C3 -.already in context.-> SKILL
+    C4 -.already in context.-> SKILL
     SKILL --> WORK[work]
 ```
 
@@ -178,9 +194,10 @@ flowchart LR
     S --> P[build plugin/]
     S --> J[junction ~/.claude/skills/alfred]
     S --> MK[Copilot marketplace + install]
+    S --> CX[link skills into ~/.agents/skills]
     S --> HC[merge 3 hooks into ~/.claude/settings.json]
     S --> HP[write ~/.copilot/hooks/alfred.json]
-    T[teardown.ps1] --> RJ[remove junctions, marketplace, global cmd]
+    T[teardown.ps1] --> RJ[remove junctions, Codex links, marketplace, global cmd]
     T --> RH[remove Alfred hook entries and hook file]
 ```
 
@@ -191,8 +208,9 @@ flowchart LR
 Pros
 
 - One command, zero configuration. Memory appears where you work, hides from git.
-- Same notebook for Claude and Copilot. The Monday-Claude, Tuesday-Copilot amnesia
-  problem is gone for anything Alfred skills touch.
+- Same notebook for Claude, Copilot, and Codex. The Monday-Claude, Tuesday-Copilot,
+  Wednesday-Codex amnesia problem is gone for anything Alfred skills touch once each
+  tool has hook injection wired.
 - Skills stay pure instructions. No skill needs to know about memory. New skills get it
   for free. Old hacks (`~/.claude/ship-pr/*.txt`, hardcoded Alfred path) can move into
   memory lines.
@@ -209,6 +227,9 @@ Cons and open risks
 - Copilot in VS Code may ignore user hooks on its bundled runtime. Test first. Worst
   case: VS Code Copilot reads files other sessions wrote, but does not get automatic
   injection until VS Code updates.
+- Codex skills are already linked through `~/.agents/skills`, but Codex memory injection
+  needs the hook event and payload shape proven before it can claim the same automation
+  level as Claude and Copilot.
 - Priority over CLAUDE.md is an instruction, not a lock. Rare conflicts are flagged,
   not prevented.
 - Writing back depends on the AI obeying the rules. Expect occasional skipped
@@ -230,6 +251,8 @@ Cons and open risks
 | Claude `PreToolUse` on `Skill` injecting `additionalContext` | 85% | Documented, one test confirms |
 | Copilot CLI `postToolUse` on `skill` injecting `additionalContext` | 80% | Documented, one test confirms |
 | Copilot user hooks read by VS Code's bundled runtime | 45% | The single real unknown; test in the first hour |
+| Codex skill sync through `~/.agents/skills` links | 90% | Implemented in `src/integrations/codex.js`; one reload confirms visibility |
+| Codex skill-start hook injection | 35% | Needs hook event and payload proof |
 | Memory stays small and useful over months | 70% | Depends on rules text quality; caps catch the rest |
 | Feedback becomes useful evidence for skill edits | 65% | Needs a few weeks of real use |
 | Whole thing ships as MVP in one focused build | 85% | About 200 lines of hook, 40 lines of rules, small edits to two integration files |
@@ -240,9 +263,12 @@ Cons and open risks
    `settings.json`. Prove injection and folder creation. One hour.
 2. Copilot CLI: write `~/.copilot/hooks/alfred.json` by hand. Prove `postToolUse`.
    Then test VS Code Copilot and record the answer. One hour.
-3. `knowledge/alfred-core.md` and `memory/global.md`. Read a real skill run's output
+3. Codex: run `alfred sync`, confirm `$alfred:<skill>` appears from
+  `~/.agents/skills`, then capture whether Codex exposes a skill-start hook with
+  injectable context. One hour.
+4. `knowledge/alfred-core.md` and `memory/global.md`. Read a real skill run's output
    and tighten the rules once.
-4. `session-start`, `session-end`, pruning.
-5. Move the hand wiring into `alfred sync` and `teardown.ps1`. Update README and
+5. `session-start`, `session-end`, pruning.
+6. Move the hand wiring into `alfred sync` and `teardown.ps1`. Update README and
    alfred-reference.
-6. Use it for two weeks. Then decide on `alfred feedback`, tags, and the rest.
+7. Use it for two weeks. Then decide on `alfred feedback`, tags, and the rest.

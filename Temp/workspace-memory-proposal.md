@@ -1,23 +1,27 @@
 # Alfred workspace memory and capability feedback: analysis and proposal
 
-Written 2026-09-09 against the Alfred repo as it is today (3 commits, skills sync
-working, `memory/` and `knowledge/` empty, no hooks). Nothing here is built.
+Written 2026-09-09 against the Alfred repo as it was then (3 commits, skills sync
+working, `memory/` and `knowledge/` empty, no hooks). Updated 2026-09-11 to include
+Codex after Alfred gained a `src/integrations/codex.js` sync path. The memory system
+described here is still a proposal unless the implementation says otherwise.
 
-Verified facts this proposal rests on (checked in docs and in local Claude Code and
-Copilot transcripts on this machine):
+Verified facts this proposal rests on (checked in docs, local Claude Code and Copilot
+transcripts, and the current Codex integration code on this machine):
 
-| Fact | Claude Code | Copilot CLI |
-|---|---|---|
-| Skill invocation is a tool call | tool `Skill`, input `{"skill":"<name>"}` | tool `skill`, args `{"skill":"<name>"}` |
-| Hook that fires before a skill runs | `PreToolUse` matcher `Skill`, may return `additionalContext` | `preToolUse` matcher `^skill$`, output limited to allow/deny/modifiedArgs |
-| Hook that can inject context around skill start | `PreToolUse` | `postToolUse` (returns `additionalContext`; fires when the `skill` tool returns the skill text, before the model does the work) |
-| Session start context | `SessionStart` `additionalContext` | `sessionStart` `additionalContext` |
-| Session end | `SessionEnd`, command runs, no model, tight time budget | `sessionEnd`, same |
-| Hook input has `cwd` | yes (`cwd`, `session_id`) | yes (`cwd`, `sessionId`) |
-| Where hooks can live | `~/.claude/settings.json` (already used by caveman on this machine), or a real plugin install. A junction under `~/.claude/skills/` loads skills only, never hooks. | `plugin/hooks.json` inside the live plugin, `.github/hooks/*.json`, or `~/.copilot/hooks/*.json` |
+| Fact | Claude Code | Copilot CLI | Codex |
+|---|---|---|---|
+| Skill invocation is a tool call | tool `Skill`, input `{"skill":"<name>"}` | tool `skill`, args `{"skill":"<name>"}` | Skill discovery works from `~/.agents/skills/alfred-<name>` links; hook payload still needs capture |
+| Hook that fires before a skill runs | `PreToolUse` matcher `Skill`, may return `additionalContext` | `preToolUse` matcher `^skill$`, output limited to allow/deny/modifiedArgs | TBD |
+| Hook that can inject context around skill start | `PreToolUse` | `postToolUse` (returns `additionalContext`; fires when the `skill` tool returns the skill text, before the model does the work) | TBD |
+| Session start context | `SessionStart` `additionalContext` | `sessionStart` `additionalContext` | TBD |
+| Session end | `SessionEnd`, command runs, no model, tight time budget | `sessionEnd`, same | TBD |
+| Hook input has `cwd` | yes (`cwd`, `session_id`) | yes (`cwd`, `sessionId`) | expected but unverified |
+| Where hooks can live | `~/.claude/settings.json` (already used by caveman on this machine), or a real plugin install. A junction under `~/.claude/skills/` loads skills only, never hooks. | `plugin/hooks.json` inside the live plugin, `.github/hooks/*.json`, or `~/.copilot/hooks/*.json` | Skills live in `~/.agents/skills`; hook registration location is the open item |
 
-Consequence: the hook idea is implementable in both tools with one script, and no
-skill file needs to change.
+Consequence: the hook idea is implementable in Claude and Copilot with one script, and
+Codex now belongs in the same scope because Alfred already installs the same built skills
+for it. No skill file needs to change; the only Codex-specific gap is proving the hook
+registration and context-injection surface.
 
 ---
 
@@ -44,7 +48,8 @@ added without changing that foundation.
 ## 2. What exists today and where the hook plugs in
 
 - Skills are plain `.md` instructions. `alfred sync` copies them to
-  `plugin/skills/<name>/SKILL.md` and connects `plugin/` to both tools. Skills have
+  `plugin/skills/<name>/SKILL.md` and connects the generated output to Claude, Copilot,
+  and Codex. Skills have
   no runtime, no access to `paths.js`, no shared preamble. `create-skill` hardcodes
   an absolute path because there is no other way to give a skill machine context.
 - There is no per-project config and no hook infrastructure in the repo.
@@ -52,15 +57,18 @@ added without changing that foundation.
   (`SessionStart`, `UserPromptSubmit` for caveman). Same mechanism, proven.
 - Copilot loads `plugin/` live from the Alfred folder. A generated
   `plugin/hooks.json` is picked up with no reinstall.
+- Codex scans `~/.agents/skills` for `<skill>/SKILL.md`. Alfred links each built skill
+  there as `alfred-<name>`, pointing back to `plugin/skills/<name>`.
 - Claude Code tool name for a skill is `Skill`; the skill name arrives without the
   `alfred:` prefix in transcripts on this machine (e.g. `mo-pr-template`), so the
   hook must accept both `alfred:<name>` and `<name>` and check the name against
   `config/skills-index.json` to ignore non-Alfred skills.
 
-Integration point: the moment the model calls the skill tool. That is the only event
-common to both tools that (a) identifies the skill, (b) happens before the work,
-(c) carries `cwd`, and (d) can inject text into the model. Session start is a
-secondary, cheaper point used only for a one-line pointer.
+Integration point: the moment the model calls or loads the skill. For Claude and Copilot
+that event is known and carries the four required facts: (a) identifies the skill,
+(b) happens before the work, (c) carries `cwd`, and (d) can inject text into the model.
+For Codex, the skill-loading path is implemented and the hook event remains the proof to
+capture. Session start is a secondary, cheaper point used only for a one-line pointer.
 
 ---
 
@@ -130,13 +138,14 @@ nothing behind.
 
 One zero-dependency Node script, `Alfred/hooks/alfred-hook.js`, with three
 actions. It reads the hook JSON from stdin, detects which tool sent it by field
-names (`tool_name` vs `toolName`), and prints the tool's expected JSON shape.
+names (`tool_name` vs `toolName`, plus the Codex shape once known), and prints the
+tool's expected JSON shape.
 
-| Action | Claude Code event | Copilot event | Does |
-|---|---|---|---|
-| `session-start` | `SessionStart` (startup, resume, compact) | `sessionStart` | If `.alfred/` exists: inject one line, e.g. `Alfred workspace memory at .alfred/ (23 facts, last session 2026-09-08 "ship-pr for export CSV"). Alfred skills load it on use.` If it does not exist: no output. Creates nothing. |
-| `skill-start` | `PreToolUse` matcher `Skill` | `postToolUse` matcher `^skill$` | Skill name from input, strip `alfred:`, ignore if not in `skills-index.json` or skill has `memory: false`. Ensure `.alfred/` layout. Bump `uses` and `last` in `feedback/<skill>.md`. Create or reuse the session file, append skill name to its `skills:` line. Inject context (see budget). |
-| `session-end` | `SessionEnd` | `sessionEnd` | Delete the session file if it has only the header and no summary. Prune `sessions/` to the newest 30. Clear the session's `.state` entry. No model, no output. |
+| Action | Claude Code event | Copilot event | Codex event | Does |
+|---|---|---|---|---|
+| `session-start` | `SessionStart` (startup, resume, compact) | `sessionStart` | TBD | If `.alfred/` exists: inject one line, e.g. `Alfred workspace memory at .alfred/ (23 facts, last session 2026-09-08 "ship-pr for export CSV"). Alfred skills load it on use.` If it does not exist: no output. Creates nothing. |
+| `skill-start` | `PreToolUse` matcher `Skill` | `postToolUse` matcher `^skill$` | TBD | Skill name from input, strip `alfred:`, ignore if not in `skills-index.json` or skill has `memory: false`. Ensure `.alfred/` layout. Bump `uses` and `last` in `feedback/<skill>.md`. Create or reuse the session file, append skill name to its `skills:` line. Inject context (see budget). |
+| `session-end` | `SessionEnd` | `sessionEnd` | TBD | Delete the session file if it has only the header and no summary. Prune `sessions/` to the newest 30. Clear the session's `.state` entry. No model, no output. |
 
 Not used in the MVP: `Stop` / `agentStop` (fires every turn, would either nag or
 cost a model call each turn), `UserPromptSubmit` (would add context to every
@@ -166,6 +175,11 @@ add context there. Counting and folder creation can still happen in `preToolUse`
 if wanted, but doing everything in `postToolUse` keeps one action, and the model
 has not started working yet at that moment.
 
+Codex detail: the skill installation path is already implemented through
+`src/integrations/codex.js`, which links built skills into `~/.agents/skills`. Do not
+invent a separate Codex memory layer. Once the hook/injection shape is known, wire it to
+the same three actions and the same `.alfred/` files.
+
 ### Wiring, per tool
 
 Claude Code: `alfred sync` merges three hook entries into
@@ -174,7 +188,7 @@ Claude Code: `alfred sync` merges three hook entries into
 updates them instead of duplicating, and `teardown.ps1` removes them by the same
 tag. This is the caveman pattern already on the machine. The alternative, turning
 the Claude route into a real plugin install via a local marketplace so
-`plugin/hooks/hooks.json` serves both tools, is cleaner but changes the proven
+`plugin/hooks/hooks.json` serves multiple tools, is cleaner but changes the proven
 skills route. Do it later once the hook is stable, not in the MVP.
 
 Copilot: `pluginBuild.js` also writes `plugin/hooks.json` with `powershell` and
@@ -182,6 +196,11 @@ Copilot: `pluginBuild.js` also writes `plugin/hooks.json` with `powershell` and
 do. Verification item: confirm plugin hooks run in the VS Code Copilot runtime
 (1.0.81) and not only in the CLI. If they do not, the CLI still works and VS Code
 gets the folder convention without automatic injection until VS Code updates.
+
+Codex: `src/integrations/codex.js` links `plugin/skills/<name>` into
+`~/.agents/skills/alfred-<name>` and prunes stale Alfred-owned links. Verification item:
+confirm `$alfred:<skill>` appears after `alfred sync` plus Codex "Force reload skills" or
+a VS Code restart. Then capture the hook registration surface for memory injection.
 
 ### Deterministic versus model-driven
 
@@ -299,8 +318,9 @@ hook warns when a section exceeds its cap so the model merges.
 ### What it solves
 
 - Cross-tool amnesia. Claude learns a convention on Monday, Copilot repeats the
-  mistake on Tuesday. Workspace-local files read by both tools fix this. This is
-  the reason Alfred exists per the original idea spec.
+  mistake on Tuesday, and Codex should not repeat it on Wednesday. Workspace-local files
+  read by every Alfred tool fix this once each hook path is active. This is the reason
+  Alfred exists per the original idea spec.
 - Skill files stop carrying machine or project state (`create-skill` hardcodes a
   path; `ship-pr` invents `~/.claude/ship-pr/*.txt`). Both can move to
   `.alfred/memory.md` or a future `.alfred/config.json`.
@@ -312,8 +332,9 @@ hook warns when a section exceeds its cap so the model merges.
 ### Where it is weaker than it sounds
 
 - Three memory systems exist already: Claude Code's own per-project auto-memory
-  (`~/.claude/projects/<slug>/memory/`, in use on this machine), CLAUDE.md, and
-  Copilot's `.github/copilot-instructions.md`. Alfred memory must stay narrow:
+  (`~/.claude/projects/<slug>/memory/`, in use on this machine), CLAUDE.md,
+  Copilot's `.github/copilot-instructions.md`, and Codex-native instructions such as
+  AGENTS.md. Alfred memory must stay narrow:
   facts Alfred skills need, plus cross-tool handoff. The contract says so
   explicitly. Without that line it becomes a fourth place to look.
 - Model-graded success rates are not evidence. Restricting ratings to explicit user
@@ -336,6 +357,8 @@ hook warns when a section exceeds its cap so the model merges.
   and self-ignored; accept it.
 - Copilot in VS Code may not run plugin hooks on its bundled runtime. Verify
   before promising the VS Code path.
+- Codex can receive Alfred skills now, but automatic memory injection should not be
+  promised until its hook payload and `additionalContext` equivalent are proven.
 - Hook latency. One Node process start per skill invocation, roughly 100 to 200 ms
   on this machine. Fine. `SessionEnd` has a short budget, so that action must do
   file operations only.
@@ -367,7 +390,7 @@ hook warns when a section exceeds its cap so the model merges.
 - Skill opt-out via frontmatter `memory: false` for trivial skills
   (`santan-voice`, `mo-pr-template`) so they cost nothing.
 - Sessions self-clean: empty ones deleted, count capped.
-- Session file name carries the tool (`-claude`, `-copilot`) so handoff
+- Session file name carries the tool (`-claude`, `-copilot`, `-codex`) so handoff
   direction is visible.
 
 ---
@@ -378,10 +401,11 @@ All inside `Alfred/`. No skill file changes.
 
 | Path | Change | Why here |
 |---|---|---|
-| `hooks/alfred-hook.js` | new, zero deps, ~200 lines | Hooks belong beside `src/` but are executed by the tools, not by the CLI; separate folder mirrors the roadmap's `hooks/`. |
+| `hooks/alfred-hook.js` | new, zero deps, ~200 lines | Hooks belong beside `src/` but are executed by the tools, not by the CLI; separate folder mirrors the roadmap's `hooks/`. Add Codex payload support after the hook shape is captured. |
 | `knowledge/workspace-memory.md` | new, the contract | First real occupant of `knowledge/`; it is reference text skills point at, exactly what that folder was reserved for. |
 | `src/core/pluginBuild.js` | also write `plugin/hooks.json` for Copilot | Same generated artefact that already reaches Copilot live. |
 | `src/integrations/claude.js` | merge and remove the three hook entries in `~/.claude/settings.json`, idempotent, tagged by command string | Same file that already owns the Claude connection. |
+| `src/integrations/codex.js` | already links each built skill into `~/.agents/skills`; later add hook registration if Codex exposes one | Same file that owns the Codex connection. |
 | `src/core/skills.js`, `skillsIndex.js` | carry optional `memory: false` frontmatter into the index | Hook reads the index to decide Alfred-or-not and opt-out. |
 | `teardown.ps1` | remove the settings.json hook entries | Keeps teardown complete. |
 | `README.md`, `Alfred-vault/Alfred-2.0/alfred-reference.md` | document folder, hook, contract | Standing rule: reference updated in the same change. |
@@ -390,7 +414,7 @@ All inside `Alfred/`. No skill file changes.
 Deferred, in order: `alfred memory` (show status for cwd, list stale lines);
 tag filtering by skill frontmatter; `alfred feedback` (aggregate `feedback/`
 across known workspaces, feeds roadmap 6 and 11); move Claude route to a plugin
-marketplace so `plugin/hooks/hooks.json` serves both tools; `.alfred/config.json`
+marketplace so `plugin/hooks/hooks.json` can serve multiple tools; `.alfred/config.json`
 for project profiles (roadmap 5); secret scan in the hook.
 
 ### Acceptance checks for the MVP
@@ -403,8 +427,14 @@ for project profiles (roadmap 5); secret scan in the hook.
 2. Same repo, Copilot CLI: `/alfred idea-grill`. `uses: 2`, new session file
    with `-copilot`. Then verify the same in VS Code Copilot Chat and record the
    result.
-3. Session with no Alfred skill: nothing created. Session with a skill but no
+3. Same repo, Codex: run `alfred sync`, reload Codex skills, confirm `$alfred:idea-grill`
+  is available from `~/.agents/skills`. If a Codex hook exists, invoke the skill and
+  expect `uses` to increment plus a `-codex` session file; otherwise record Codex as
+  skill-sync only for this MVP slice.
+4. Session with no Alfred skill: nothing created. Session with a skill but no
    result: session file removed at end.
-4. `cwd` = home directory or `%TEMP%`: nothing created, hook exits 0.
-5. `alfred sync` twice: settings.json has exactly three Alfred hook entries.
+5. `cwd` = home directory or `%TEMP%`: nothing created, hook exits 0.
+6. `alfred sync` twice: settings.json has exactly three Alfred hook entries,
+  Copilot hook output is stable, and Codex has exactly one Alfred-owned link per built
+  skill with stale links pruned.
    `teardown.ps1`: zero.

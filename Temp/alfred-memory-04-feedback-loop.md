@@ -26,7 +26,8 @@ Facts the hook records (always true, no judgement):
 
 - how many times the skill was used in this project
 - when it was last used
-- which tool called it (visible in the session file name)
+- which tool called it: Claude, Copilot, or Codex (visible in the session file name once
+  that tool's hook path is active)
 
 Facts the AI records, only on your explicit signal:
 
@@ -80,8 +81,8 @@ is the second time, adds:
 ```
 
 Day 30, your review. You open the skill, add that check to its process, run
-`alfred sync`. Every tool gets the better skill. You may clear the Improvements line or
-leave it with a date so the next review knows it was applied.
+`alfred sync`. Claude, Copilot, and Codex get the better skill. You may clear the
+Improvements line or leave it with a date so the next review knows it was applied.
 
 ## The review, done by hand for now
 
@@ -111,7 +112,7 @@ feedback folders of the workspaces the hook has seen (it can keep a list in
 
 | Claim | Confidence |
 |---|---|
-| `uses` and `last` counters are accurate | 95% (pure code, fires on every skill call the hook sees) |
+| `uses` and `last` counters are accurate | 95% for hook-proven tools; Codex reaches the same confidence after its hook event is verified |
 | Ratings and notes get written when you signal | 70% (instruction-driven; the AI may miss subtle signals. Saying "rate that bad" explicitly always works) |
 | Improvement lines point at real skill defects after a month | 65% (needs a few repeats to separate skill bugs from one-off project quirks) |
 | The loop stays cheap | 90% (a few lines per event, one small file per skill per project) |
