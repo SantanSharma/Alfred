@@ -7,4 +7,4 @@
 
 3. session file is gettign created whenever the skill isgetting used but the file containes notthin when the file will ahve data, and what it will store and how currectnly its not storyin or I am not testing it that way suggest testing technies of storing this in session useful
 
-4. 
+4. codex not remvoed the session by saying in chat "end this session" but the session has sumamry of what we did in codex, but the same does not happend in claude and copilot.
